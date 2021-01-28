@@ -12,7 +12,6 @@ all:xwm
 biscuitwm: wm.o screen_data.o
 	$(CC) $(ALL_LDFLAGS) -o biscuitwmwm wm.o  screen_data.o $(LDLIBS)
 	rm *.o
-	mv -v biscuitwm ~/bin/
 
 wm.o: wm.c wm.h screen_data.h
 	$(CC) $(ALL_CFLAGS) wm.c -c
