@@ -7,10 +7,10 @@ LDLIBS = -lm -lxcb-keysyms -lxcb -lxcb-randr -lxcb-shape
 BINDIR = $(PREFIX)/bin
 MANDIR = $(PREFIX)/share/man
 
-all:xwm
+all:biscuitwm
 
 biscuitwm: wm.o screen_data.o
-	$(CC) $(ALL_LDFLAGS) -o biscuitwmwm wm.o  screen_data.o $(LDLIBS)
+	$(CC) $(ALL_LDFLAGS) -o biscuitwm wm.o  screen_data.o $(LDLIBS)
 	rm *.o
 
 wm.o: wm.c wm.h screen_data.h
