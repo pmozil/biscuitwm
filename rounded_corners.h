@@ -1,0 +1,1 @@
+void window_rounded_border(xcb_window_t win, unsigned int radius);
