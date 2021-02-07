@@ -17,7 +17,7 @@ void ewmh_init(void) {
 }
 
 void ewmh_update_active_window(void) {
-	xcb_ewmh_set_active_window(ewmh, scr, win);
+	xcb_ewmh_set_active_window(ewmh,  scr, win);
 }
 
 void ewmh_update_client_list() {
@@ -28,35 +28,30 @@ void ewmh_update_client_list() {
     }
 
 	if (len == 0) {
-		xcb_ewmh_set_client_list(ewmh, scr, 0, NULL);
-		xcb_ewmh_set_client_list_stacking(ewmh, scr, 0, NULL);
+		xcb_ewmh_set_client_list(ewmh,  scr, 0, NULL);
+		xcb_ewmh_set_client_list_stacking(ewmh,  scr, 0, NULL);
 		return;
 	}
 
     xcb_window_t wins[len];
 
 	while(cur->next) {
-        wins[iter] = cur->win;
+        wins[iter] = * cur->win;
 		iter++;
     }
 
-    xcb_ewmh_set_client_list(ewmh, scr, len, wins);
+    xcb_ewmh_set_client_list(ewmh,  scr, len, wins);
 }
 
-void _apply_window_type(xcb_window_t win, rule_t *csq) {
+void _apply_window_type(Window *win) {
 	xcb_ewmh_get_atoms_reply_t win_type;
-	if (xcb_ewmh_get_wm_window_type_reply(ewmh, xcb_ewmh_get_wm_window_type(ewmh, win), &win_type, NULL) == 1) {
+	if (xcb_ewmh_get_wm_window_type_reply(ewmh, xcb_ewmh_get_wm_window_type(ewmh, *win->win), &win_type, NULL) == 1) {
 		for (unsigned int i = 0; i < win_type.atoms_len; i++) {
 			xcb_atom_t a = win_type.atoms[i];
-			if (a == ewmh->_NET_WM_WINDOW_TYPE_TOOLBAR ||
-			    a == ewmh->_NET_WM_WINDOW_TYPE_UTILITY) {
-				csq->focus = true;
-			} else if (a == ewmh->_NET_WM_WINDOW_TYPE_DIALOG) {
-				csq->center = true;
-			} else if (a == ewmh->_NET_WM_WINDOW_TYPE_DOCK ||
-			           a == ewmh->_NET_WM_WINDOW_TYPE_DESKTOP ||
-			           a == ewmh->_NET_WM_WINDOW_TYPE_NOTIFICATION) {
-				csq->manage = true;
+			if (a == ewmh->_NET_WM_WINDOW_TYPE_DOCK ||
+			    a == ewmh->_NET_WM_WINDOW_TYPE_DESKTOP ||
+			    a == ewmh->_NET_WM_WINDOW_TYPE_NOTIFICATION) {
+				win->manage = true;
 			}
 		}
 		xcb_ewmh_get_atoms_reply_wipe(&win_type);

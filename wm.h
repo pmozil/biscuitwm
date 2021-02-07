@@ -27,10 +27,10 @@ static xcb_keycode_t * xcb_get_keycodes(xcb_keysym_t keysym);
 static xcb_keysym_t    xcb_get_keysym(xcb_keycode_t keycode);
 
 static handler_func_t handler_funs[] = {
-//    { XCB_CREATE_NOTIFY,  handleCreateRequest },
+    { XCB_CREATE_NOTIFY,  handleCreateRequest },
     { XCB_MOTION_NOTIFY,  handleMotionNotify },
     { XCB_ENTER_NOTIFY,   handleEnterNotify },
-//    { XCB_DESTROY_NOTIFY, handleDestroyRequest },
+    { XCB_DESTROY_NOTIFY, handleDestroyRequest },
     { XCB_BUTTON_PRESS,   handleButtonPress },
     { XCB_BUTTON_RELEASE, handleButtonRelease },
     { XCB_KEY_PRESS,      handleKeyPress },
