@@ -1,3 +1,8 @@
+#include <xcb/xcb.h>
+#include <xcb/shape.h>
+#include <stdlib.h>
+
+extern xcb_connection_t *d;
 
 void window_rounded_border(xcb_window_t win, unsigned int radius)
 {
