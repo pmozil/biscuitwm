@@ -2,6 +2,6 @@
 
 typedef struct Window{
     xcb_window_t *win;
-    bool manage;
+    bool manage, dock;
     struct Window *next;
 }Window;

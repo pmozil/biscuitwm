@@ -26,6 +26,13 @@ Window *cur;
 
 static void killclient(char **com) {
     UNUSED(com);
+    Window *tmp = cur;
+    while(tmp->next) {
+        if(*tmp->win==win&&(!tmp->manage||tmp->dock)) {
+        return;
+        }
+        tmp = tmp->next;
+    }
     xcb_kill_client(d, win);
 }
 
@@ -47,7 +54,7 @@ static void handleMotionNotify(xcb_generic_event_t * ev) {
     xcb_query_pointer_reply_t * poin = xcb_query_pointer_reply(d, coord, 0);
     Window *tmp = cur;
     while(tmp->next) {
-        if(tmp->manage && *tmp->win==win) {
+        if(*tmp->win==win&&(!tmp->manage||tmp->dock)) {
         return;
         }
         tmp = tmp->next;
@@ -114,20 +121,20 @@ static void handleKeyPress(xcb_generic_event_t * ev) {
 
 static void handleMapRequest(xcb_generic_event_t * ev) {
     xcb_map_request_event_t * e = (xcb_map_request_event_t *) ev;
+    xcb_map_window(d, e->window);
     Window *tmp = cur;
     while(tmp->next) {
-        if(tmp->manage && *tmp->win==e->window) {
+        if(*tmp->win==win&&(!tmp->manage||tmp->dock)) {
         return;
         }
         tmp = tmp->next;
     }
-    xcb_map_window(d, e->window);
     xcb_get_geometry_cookie_t cookie;
     xcb_get_geometry_reply_t *reply;
     cookie = xcb_get_geometry(d, e->window);
     reply = xcb_get_geometry_reply(d, cookie, NULL);
     uint32_t vals[5];
-    vals[0] = reply ? reply->x : get_window_x(1280);
+    vals[0] = get_window_x(1280);
     vals[1] = reply ? reply->y : (scr->height_in_pixels / 2) - (720 / 2);
     vals[2] = reply ? reply->width : 1280;
     vals[3] = reply ? reply->height : 720;
@@ -162,35 +169,35 @@ static void handleCreateRequest(xcb_generic_event_t *ev) {
 static void handleDestroyRequest(xcb_generic_event_t *ev) {
     xcb_destroy_notify_event_t * e = (xcb_destroy_notify_event_t *) ev;
 
-    Window *temp= cur;
-    while(temp->next) {
-        if(temp->manage && *temp->win==e->window) {
+    Window *tmp = cur, *prev = cur;
+
+    while(tmp->next) {
+        if(*tmp->win==e->window&&(!tmp->manage||tmp->dock)){
         return;
         }
-        temp = temp->next;
+        tmp = tmp->next;
     }
-
-    Window *tmp = cur, *prev = cur;
   
-    while (tmp != NULL && *tmp->win != e->window) {
-        prev = tmp;
+    tmp = cur;
+
+    while (tmp!=NULL && *tmp->win != e->window) { 
+        prev = tmp; 
         tmp = tmp->next; 
     } 
 
-    if(tmp->manage) {
-        return;
-    }
-
-    if (*tmp->win != e->window) {
+    if(*tmp->win != e->window){
         xcb_kill_client(d, e->window);
         return;
     }
 
-    if (tmp->next != NULL){
-            prev->next = tmp->next; 
-    } else {
-        prev->next = NULL;
-    }
+    if(*tmp->win==scr->root)
+        return;
+
+    prev->next = NULL;
+
+    if (tmp->next)
+        prev->next = tmp->next;
+
     free(tmp);
     xcb_kill_client(d, e->window);
 }
@@ -236,8 +243,8 @@ static void setup(void) {
     }
     cur = (Window *) calloc(1, sizeof(Window));
     cur->win = &scr->root;
-    cur->manage = true;
     cur->next = NULL;
+    _apply_window_type(cur);
     xcb_flush(d);
     xcb_grab_button(d, 0, scr->root, XCB_EVENT_MASK_BUTTON_PRESS |
         XCB_EVENT_MASK_BUTTON_RELEASE, XCB_GRAB_MODE_ASYNC,
@@ -250,9 +257,8 @@ static void setup(void) {
 
 int main() {
     int sys = system(SCRIPT);
-    if(sys) {
-        return 1;
-    }
+    if(sys)
+    return 1;
 	d = xcb_connect(NULL, NULL);
     int ret = xcb_connection_has_error(d);
     if (ret == 0) {
