@@ -53,7 +53,7 @@ static void handleMotionNotify(xcb_generic_event_t * ev) {
     xcb_query_pointer_cookie_t coord = xcb_query_pointer(d, scr->root);
     xcb_query_pointer_reply_t * poin = xcb_query_pointer_reply(d, coord, 0);
     Window *tmp = cur;
-    while(tmp->next) {
+    while(tmp!=NULL) {
         if(*tmp->win==win&&(!tmp->manage||tmp->dock)) {
         return;
         }
@@ -123,7 +123,7 @@ static void handleMapRequest(xcb_generic_event_t * ev) {
     xcb_map_request_event_t * e = (xcb_map_request_event_t *) ev;
     xcb_map_window(d, e->window);
     Window *tmp = cur;
-    while(tmp->next) {
+    while(tmp!=NULL) {
         if(*tmp->win==win&&(!tmp->manage||tmp->dock)) {
         return;
         }
@@ -171,7 +171,7 @@ static void handleDestroyRequest(xcb_generic_event_t *ev) {
 
     Window *tmp = cur, *prev = cur;
 
-    while(tmp->next) {
+    while(tmp!=NULL) {
         if(*tmp->win==e->window&&(!tmp->manage||tmp->dock)){
         return;
         }

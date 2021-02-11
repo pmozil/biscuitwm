@@ -47,6 +47,7 @@ void ewmh_update_client_list() {
 void _apply_window_type(Window *win) {
 	xcb_ewmh_get_atoms_reply_t win_type;
 	win->manage = true;
+	win->dock = false;
 	if (xcb_ewmh_get_wm_window_type_reply(ewmh, xcb_ewmh_get_wm_window_type(ewmh, *win->win), &win_type, NULL) == 1) {
 		for (unsigned int i = 0; i < win_type.atoms_len; i++) {
 			xcb_atom_t a = win_type.atoms[i];
