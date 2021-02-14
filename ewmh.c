@@ -44,20 +44,27 @@ void ewmh_update_client_list() {
     xcb_ewmh_set_client_list(ewmh, screens->len, len, wins);
 }
 
-void _apply_window_type(Window *win) {
-	xcb_ewmh_get_atoms_reply_t win_type;
-	win->manage = true;
+props window_props(Window *win) {
+	xcb_ewmh_get_atoms_reply_t win_type;\
+
+	props rule;
+	rule.manage=true;
+	rule.dock=false;
+	rule.center=false;
+
 	if (xcb_ewmh_get_wm_window_type_reply(ewmh, xcb_ewmh_get_wm_window_type(ewmh, *win->win), &win_type, NULL) == 1) {
 		for (unsigned int i = 0; i < win_type.atoms_len; i++) {
 			xcb_atom_t a = win_type.atoms[i];
-			if (a == ewmh->_NET_WM_WINDOW_TYPE_DOCK ||
+			if (
 			    a == ewmh->_NET_WM_WINDOW_TYPE_DESKTOP ||
 			    a == ewmh->_NET_WM_WINDOW_TYPE_NOTIFICATION) {
-				win->manage = false;
-				if(a == ewmh->_NET_WM_WINDOW_TYPE_DOCK)
-					win->dock = true;
+				rule.manage=false;
 			}
-		}
+			if (a == ewmh->_NET_WM_WINDOW_TYPE_DOCK) {
+				rule.dock=true;
+			}
 		xcb_ewmh_get_atoms_reply_wipe(&win_type);
 	}
+	}
+	return rule;
 }

@@ -1,12 +1,14 @@
 #include <xcb/xcb.h>
 #include <xcb/randr.h>
 #include <stdlib.h>
+#include "window.h"
 #include "screen_data.h"
 
 screen_data_t *screens;
 
 extern xcb_connection_t *d;
 extern xcb_screen_t *scr;
+extern Window *cur;
 
 void get_screen_data() {
     xcb_randr_get_screen_resources_current_reply_t *reply = xcb_randr_get_screen_resources_current_reply(
@@ -38,15 +40,15 @@ void get_screen_data() {
         screens->len++;
         continue;
     }
-    if(!screens->iter)
-        screens->iter = screens->first;
-    while(screens->iter->next)
-        screens->iter = screens->iter->next;
-    screens->iter->next = (screen_data *) calloc(1, sizeof(screen_data));
-    screens->iter->next->y = crtc->y;
-    screens->iter->next->x = crtc->x;
-    screens->iter->next->width = crtc->width;
-    screens->iter->next->height = crtc->height;
+    screen_data *tmp = screens->first;
+    while(tmp->next)
+        tmp = tmp->next;
+    tmp->next = (screen_data *) calloc(1, sizeof(screen_data));
+    tmp->next->y = crtc->y;
+    tmp->next->x = crtc->x;
+    tmp->next->width = crtc->width;
+    tmp->next->height = crtc->height;
+    tmp->next->next = NULL;
     screens->len++;
 
     free(crtc);
@@ -54,23 +56,21 @@ void get_screen_data() {
     }
 }
 
-int get_window_x(int window_width) {
+void insert_window(Window *w) {
     xcb_query_pointer_cookie_t coord = xcb_query_pointer(d, scr->root);
     xcb_query_pointer_reply_t * poin = xcb_query_pointer_reply(d, coord, 0);
     int x = poin->root_x;
-    int val;
-    screens->iter = screens->first;
-    for(int i=0; i<screens->len; i++){
-        if(!screens->iter->next)
-			break;
+    screen_data *tmp = screens->first;
+    while(tmp){
         if(
-            ((screens->iter->x + screens->iter->width) >= x) && (x >= screens->iter->x)
-        )
+            ((tmp->x + tmp->width) >= x) && (x >= tmp->x)
+        ){
+            Window *temp = tmp->windows->window_list;
+            while(temp->next)
+                temp = temp->next;
+            temp->next = w;
             break;
-        
-        if(screens->iter->next)
-            screens->iter = screens->iter->next;
+        }
+        tmp = tmp->next;
     }
-    val = screens->iter->x + screens->iter->width/2 - window_width/2;
-    return val;
 }

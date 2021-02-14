@@ -10,6 +10,10 @@ typedef struct {
     void (*func)(xcb_generic_event_t * ev);
 } handler_func_t;
 
+typedef struct {
+    uint32_t request;
+} handler_func;
+
 #define MOD1                   XCB_MOD_MASK_4
 #define MOD2                   XCB_MOD_MASK_SHIFT
 
@@ -23,6 +27,7 @@ static void handleButtonRelease(xcb_generic_event_t * ev);
 static void handleKeyPress(xcb_generic_event_t * ev);
 static void handleMapRequest(xcb_generic_event_t * ev);
 static void killclient(char **com);
+static int breaker();
 static xcb_keycode_t * xcb_get_keycodes(xcb_keysym_t keysym);
 static xcb_keysym_t    xcb_get_keysym(xcb_keycode_t keycode);
 
@@ -38,6 +43,13 @@ static handler_func_t handler_funs[] = {
     { XCB_NONE,           NULL }
 };
 
+static handler_func win_props[] = {
+        { XCB_MOTION_NOTIFY },
+        { XCB_DESTROY_NOTIFY },
+        { XCB_MAP_REQUEST },
+        {0}
+};
+
 static Key keys[] = {
-    { MOD1,      0x0071, killclient, NULL },    /* 0x0071 = XK_q */
+    { MOD1,      0x0071, killclient, NULL }    /* 0x0071 = XK_q */
 };
