@@ -10,15 +10,14 @@ typedef struct Window{
     struct Window *next;
 }Window;
 
-typedef struct {
+typedef struct workspace{
     Window *window_list;
-    xcb_drawable_t *root;
     struct workspace *next;
 } workspace;
 
 typedef struct screen_data{
-    int width, height, x, y;
     workspace *windows;
+    int current_workspace, width, height, x, y;
     struct screen_data *next;
 } screen_data;
 

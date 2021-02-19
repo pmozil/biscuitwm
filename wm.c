@@ -21,6 +21,7 @@ xcb_connection_t *d;
 xcb_screen_t *scr;
 xcb_window_t win;
 Window *cur;
+int workspace_amount = 2;
 
 #include "ewmh.h"
 #include "screen_data.h"
@@ -153,13 +154,9 @@ static void handleCreateRequest(xcb_generic_event_t *ev) {
     new->next = NULL;
     new->rule = window_props(new);
 //    insert_window(new);
-    while (1) {
-        if(next->next == NULL){
-            next->next = new;
-            break;
-        }
+    while (next!=NULL)
         next = next->next;
-    }
+    next->next = new;
     xcb_map_window(d, e->window);
     xcb_flush(d);
 }

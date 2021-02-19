@@ -9,6 +9,7 @@ screen_data_t *screens;
 extern xcb_connection_t *d;
 extern xcb_screen_t *scr;
 extern Window *cur;
+extern int workspace_amount;
 
 void get_screen_data() {
     xcb_randr_get_screen_resources_current_reply_t *reply = xcb_randr_get_screen_resources_current_reply(
@@ -46,6 +47,14 @@ void get_screen_data() {
     tmp->next = (screen_data *) calloc(1, sizeof(screen_data));
     tmp->next->y = crtc->y;
     tmp->next->x = crtc->x;
+    tmp->current_workspace=1;
+    tmp->windows = calloc(1, sizeof(workspace));
+    workspace *temp = tmp->windows;
+    for(int i=0; i<workspace_amount; i++){
+        temp->next = calloc(1, sizeof(workspace));
+        temp->window_list = calloc(1, sizeof(Window));
+        temp = temp->next;
+    }
     tmp->next->width = crtc->width;
     tmp->next->height = crtc->height;
     tmp->next->next = NULL;
@@ -55,22 +64,30 @@ void get_screen_data() {
     free(output);
     }
 }
-
+//TODO: make this thingy work somehow
 void insert_window(Window *w) {
+    screen_data *tmp = get_current_screen();
+    
+    if(!tmp)
+        return;
+
+    struct workspace *temp = tmp->windows;
+    for(int i =1;i<tmp->current_workspace; i++)
+        temp=temp->next;
+
+    Window *temp_win = temp->window_list;
+    while(temp_win!=NULL)
+        temp_win = temp_win->next;
+    temp_win = w;
+}
+
+screen_data *get_current_screen() {
     xcb_query_pointer_cookie_t coord = xcb_query_pointer(d, scr->root);
     xcb_query_pointer_reply_t * poin = xcb_query_pointer_reply(d, coord, 0);
     int x = poin->root_x;
     screen_data *tmp = screens->first;
-    while(tmp){
-        if(
-            ((tmp->x + tmp->width) >= x) && (x >= tmp->x)
-        ){
-            Window *temp = tmp->windows->window_list;
-            while(temp->next)
-                temp = temp->next;
-            temp->next = w;
-            break;
-        }
+    while ((tmp->x + tmp->width) >= x && (x >= tmp->x)){
         tmp = tmp->next;
     }
+    return tmp;
 }
