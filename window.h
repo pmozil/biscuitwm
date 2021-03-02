@@ -1,23 +1,25 @@
 #include <stdbool.h>
 
+#define WORKSPACE_AMOUNT 4 
 typedef struct{
     bool manage, dock, center;
 }props;
 
 typedef struct Window{
     xcb_window_t *win;
+    int ws_id, scr_id;
     props rule;
     struct Window *next;
 }Window;
 
-typedef struct workspace{
-    Window *window_list;
-    struct workspace *next;
-} workspace;
+typedef struct ID{
+    int id;
+    struct ID *next;
+}ID;
 
 typedef struct screen_data{
-    workspace *windows;
-    int current_workspace, width, height, x, y;
+    int id, ws_id, width, height, x, y;
+    struct ID *ws_list;
     struct screen_data *next;
 } screen_data;
 

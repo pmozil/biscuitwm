@@ -1,4 +1,5 @@
 #include <xcb/xcb_ewmh.h>
+#include "screen_data.h"
 
 extern xcb_ewmh_connection_t *ewmh;
 

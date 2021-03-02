@@ -1,8 +1,6 @@
 #include <xcb/xcb.h>
 #include <stdlib.h>
-#include "window.h"
 #include "ewmh.h"
-#include "screen_data.h"
 
 xcb_ewmh_connection_t *ewmh;
 extern xcb_connection_t *d;

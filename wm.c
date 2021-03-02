@@ -5,9 +5,7 @@
 #include <xcb/xcb_keysyms.h>
 #include <stdlib.h>
 #include <xcb/shape.h>
-#include <pthread.h> 
 #include "wm.h"
-#include "window.h"
 #include "rounded_corners.h"
 
 
@@ -21,10 +19,9 @@ xcb_connection_t *d;
 xcb_screen_t *scr;
 xcb_window_t win;
 Window *cur;
-int workspace_amount = 2;
 
 #include "ewmh.h"
-#include "screen_data.h"
+
 
 static int breaker(){
     Window *tmp = cur;
@@ -37,15 +34,30 @@ static int breaker(){
     return 0;
 }
 
-static void killclient(char **com) {
-    UNUSED(com);
-    Window *tmp = cur;
-    while(tmp) {
-        if(*tmp->win==win&&(!tmp->rule.manage)) {
-        return;
-        }
-        tmp = tmp->next;
+static void killclient(xcb_window_t win, bool right) {
+    Window *tmp = cur, *prev = cur;
+
+    UNUSED(right);
+
+    while (tmp!=NULL && *tmp->win != win) { 
+        prev = tmp; 
+        tmp = tmp->next; 
     }
+
+    if(tmp==NULL){
+        xcb_kill_client(d, win); 
+        return;
+    }
+
+    if(*tmp->win==scr->root)
+        return;
+
+    prev->next = NULL;
+
+    if (tmp->next)
+        prev->next = tmp->next;
+
+    free(tmp);
     xcb_kill_client(d, win);
 }
 
@@ -119,7 +131,7 @@ static void handleKeyPress(xcb_generic_event_t * ev) {
     int key_table_size = sizeof(keys) / sizeof(*keys);
     for (int i = 0; i < key_table_size; ++i) {
         if ((keys[i].keysym == keysym) && (keys[i].mod == e->state)) {
-            keys[i].func(keys[i].com);
+            keys[i].func(win, keys[i].arg);
         }
     }
 }
@@ -131,12 +143,18 @@ static void handleMapRequest(xcb_generic_event_t * ev) {
     xcb_get_geometry_reply_t *reply;
     cookie = xcb_get_geometry(d, e->window);
     reply = xcb_get_geometry_reply(d, cookie, NULL);
+    screen_data *scr_tmp = get_current_screen();
     uint32_t vals[5];
-    vals[0] = reply->x<0 ? reply->x : 480;
-    vals[1] = reply->y<0 ? reply->y : (scr->height_in_pixels / 2) - (270 / 2);
-    vals[2] = reply->width<480 ? reply->width : 480;
-    vals[3] = reply->height<270 ? reply->height : 280;
+    vals[0] = reply->x?reply->x:scr_tmp->x;
+    vals[1] = reply->y?reply->y:scr_tmp->y;
+    vals[2] = reply->width?reply->width:1920;
+    vals[3] = reply->height?reply->height:1080;
     vals[4] = 1;
+    Window *win_tmp = cur;
+    while(win_tmp!=NULL && * win_tmp->win!=win)
+        win_tmp=win_tmp->next;
+    if(win_tmp!=NULL)
+        win_tmp->scr_id=scr_tmp->id;
     xcb_configure_window(d, e->window, XCB_CONFIG_WINDOW_X |
         XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |
         XCB_CONFIG_WINDOW_HEIGHT | XCB_CONFIG_WINDOW_BORDER_WIDTH, vals);
@@ -150,13 +168,16 @@ static void handleMapRequest(xcb_generic_event_t * ev) {
 static void handleCreateRequest(xcb_generic_event_t *ev) {
     xcb_create_notify_event_t *e = (xcb_create_notify_event_t  *) ev;
     Window *next = cur, *new = (Window *) calloc(1, sizeof(Window));
+    screen_data *scr_tmp = get_current_screen();
     new->win = &e->window;
     new->next = NULL;
     new->rule = window_props(new);
-//    insert_window(new);
-    while (next!=NULL)
+    new->ws_id = scr_tmp->ws_id;
+    new->scr_id = scr_tmp->id;
+    while (next!=NULL) {
         next = next->next;
-    next->next = new;
+    }
+    next=new;
     xcb_map_window(d, e->window);
     xcb_flush(d);
 }
@@ -164,27 +185,8 @@ static void handleCreateRequest(xcb_generic_event_t *ev) {
 static void handleDestroyRequest(xcb_generic_event_t *ev) {
     xcb_destroy_notify_event_t * e = (xcb_destroy_notify_event_t *) ev;
 
-    Window *tmp = cur, *prev = cur;
-
-    while (tmp!=NULL && *tmp->win != e->window) { 
-        prev = tmp; 
-        tmp = tmp->next; 
-    } 
-
-    if(*tmp->win != e->window){
-        xcb_kill_client(d, e->window);
-        return;
-    }
-
-    if(*tmp->win==scr->root)
-        return;
-
-    prev->next = NULL;
-
-    if (tmp->next)
-        prev->next = tmp->next;
-
-    free(tmp);
+    killclient(e->window, false);
+    
     xcb_kill_client(d, e->window);
 }
 
