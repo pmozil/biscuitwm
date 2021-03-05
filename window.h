@@ -1,5 +1,7 @@
 #include <stdbool.h>
 
+#ifndef WINDOW_DATA
+#define WINDOW_DATA
 #define WORKSPACE_AMOUNT 4 
 typedef struct{
     bool manage, dock, center;
@@ -14,7 +16,7 @@ typedef struct Window{
 
 typedef struct ID{
     int id;
-    struct ID *next;
+    struct ID *next, *prev;
 }ID;
 
 typedef struct screen_data{
@@ -27,3 +29,4 @@ typedef struct screen_data_t{
     int len;
     struct screen_data *first;
 } screen_data_t;
+#endif

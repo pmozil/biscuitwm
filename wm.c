@@ -23,10 +23,10 @@ Window *cur;
 #include "ewmh.h"
 
 
-static int breaker(){
+int breaker(){
     Window *tmp = cur;
     while(tmp) {
-        if(*tmp->win==win&&(!tmp->rule.manage)) {
+        if(*tmp->win==win&&(!tmp->rule.manage||tmp->rule.dock)) {
         return 1;
         }
         tmp = tmp->next;
@@ -62,6 +62,9 @@ static void killclient(xcb_window_t win, bool right) {
 }
 
 static void handleButtonPress(xcb_generic_event_t * ev) {
+    int breakCondition = breaker();
+    if(breakCondition)
+        return;
     xcb_button_press_event_t  * e = (xcb_button_press_event_t *) ev;
 	win = e->child;
     values[0] = XCB_STACK_MODE_ABOVE;
@@ -74,6 +77,9 @@ static void handleButtonPress(xcb_generic_event_t * ev) {
 }
 
 static void handleMotionNotify(xcb_generic_event_t * ev) {
+    int breakCondition = breaker();
+    if(breakCondition)
+        return;
     UNUSED(ev);
     xcb_query_pointer_cookie_t coord = xcb_query_pointer(d, scr->root);
     xcb_query_pointer_reply_t * poin = xcb_query_pointer_reply(d, coord, 0);
@@ -95,6 +101,20 @@ static void handleMotionNotify(xcb_generic_event_t * ev) {
             }
         }
     } else {}
+}
+
+static void handleConfigureRequest(xcb_generic_event_t * ev){
+    xcb_configure_request_event_t *e = (xcb_configure_request_event_t *) ev;
+    int vals[5];
+    vals[0] = e->x;
+    vals[1] = e->y;
+    vals[2] = e->width;
+    vals[3] = e->height;
+    vals[4] = e->border_width;
+    xcb_configure_window(d, e->window, XCB_CONFIG_WINDOW_X |
+        XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |
+        XCB_CONFIG_WINDOW_HEIGHT | XCB_CONFIG_WINDOW_BORDER_WIDTH, vals);
+    xcb_flush(d);
 }
 
 static xcb_keycode_t * xcb_get_keycodes(xcb_keysym_t keysym) {
@@ -168,15 +188,14 @@ static void handleMapRequest(xcb_generic_event_t * ev) {
 static void handleCreateRequest(xcb_generic_event_t *ev) {
     xcb_create_notify_event_t *e = (xcb_create_notify_event_t  *) ev;
     Window *next = cur, *new = (Window *) calloc(1, sizeof(Window));
-    screen_data *scr_tmp = get_current_screen();
+//    screen_data *scr_tmp = get_current_screen();
     new->win = &e->window;
     new->next = NULL;
     new->rule = window_props(new);
-    new->ws_id = scr_tmp->ws_id;
-    new->scr_id = scr_tmp->id;
-    while (next!=NULL) {
+//    new->ws_id = scr_tmp->ws_id;
+//    new->scr_id = scr_tmp->id;
+    while (next!=NULL)
         next = next->next;
-    }
     next=new;
     xcb_map_window(d, e->window);
     xcb_flush(d);
@@ -200,14 +219,10 @@ static int eventHandler(void) {
             if ((ev->response_type & ~0x80) == handler->request) {
                 for (props = win_props; props->request != 0; props++){
                     if(handler->request==props->request){
-                        int breakCondition = breaker();
-                        if(breakCondition){
-                            xcb_flush(d);
-                            return ret;
-                        }
+                        xcb_flush(d);
                     }
                 }
-                 handler->func(ev);
+                handler->func(ev);
                 window_rounded_border(win, 14);
             }
         }

@@ -29,12 +29,14 @@ static void handleButtonRelease(xcb_generic_event_t * ev);
 static void handleKeyPress(xcb_generic_event_t * ev);
 static void handleMapRequest(xcb_generic_event_t * ev);
 static void killclient(xcb_window_t win, bool right);
-static int breaker();
+static void handleConfigureRequest(xcb_generic_event_t * ev);
+int breaker();
 static xcb_keycode_t * xcb_get_keycodes(xcb_keysym_t keysym);
 static xcb_keysym_t    xcb_get_keysym(xcb_keycode_t keycode);
 
 static handler_func_t handler_funs[] = {
     { XCB_CREATE_NOTIFY,  handleCreateRequest },
+    {XCB_CONFIGURE_REQUEST, handleConfigureRequest},
     { XCB_MOTION_NOTIFY,  handleMotionNotify },
     { XCB_ENTER_NOTIFY,   handleEnterNotify },
     { XCB_DESTROY_NOTIFY, handleDestroyRequest },
@@ -54,6 +56,6 @@ static handler_func win_props[] = {
 
 static Key keys[] = {
     { MOD1,      0x0071, false, killclient},    /* 0x0071 = XK_q */
-    { MOD1,      0x0068, true,  win_switch},    // 0x0068 = XK_m
-    { MOD1,      0x0069, false, win_switch},    // 0x0069 = XK_n
+//    { MOD1,      0x006d, true,  ws_switch},    // 0x006d = XK_m
+//    { MOD1,      0x006e, false, ws_switch},    // 0x006e = XK_n
 };

@@ -10,6 +10,8 @@ extern xcb_screen_t *scr;
 extern Window *cur;
 extern int workspace_amount;
 
+#define UNUSED(x) (void)(x)
+
 void get_screen_data() {
     xcb_randr_get_screen_resources_current_reply_t *reply = xcb_randr_get_screen_resources_current_reply(
     d, xcb_randr_get_screen_resources_current(d, scr->root), NULL);
@@ -18,7 +20,7 @@ void get_screen_data() {
     int len = xcb_randr_get_screen_resources_current_outputs_length(reply);
     screens = (screen_data_t *)calloc(1, sizeof(screen_data_t));
     screens->len = len;
-    for (int i = 0; i < len; i++) {
+    for (int i = 1; i <= len; i++) {
     xcb_randr_get_output_info_reply_t *output = xcb_randr_get_output_info_reply(
             d, xcb_randr_get_output_info(d, randr_outputs[i], timestamp), NULL);
     if (output == NULL)
@@ -29,20 +31,6 @@ void get_screen_data() {
 
     xcb_randr_get_crtc_info_reply_t *crtc = xcb_randr_get_crtc_info_reply(d,
             xcb_randr_get_crtc_info(d, output->crtc, timestamp), NULL);
-    
-    if(!screens) {
-        screens = (screen_data_t *)calloc(1, sizeof(screen_data_t));
-        screens->len = 0;
-    }
-    if (!screens->first) {
-        screens->first =(screen_data *) calloc(1, sizeof(screen_data));
-        screens->first->x = crtc->x;
-        screens->first->y = crtc->y;
-        screens->first->width = crtc->width;
-        screens->first->height = crtc->height;
-        screens->len++;
-        continue;
-    }
     screen_data *tmp = (screen_data *) calloc(1, sizeof(screen_data));
     tmp->id = i;
     tmp->y = crtc->y;
@@ -50,17 +38,27 @@ void get_screen_data() {
     tmp->width = crtc->width;
     tmp->height = crtc->height;
     tmp->next = NULL;
-    ID *ws_tmp=tmp->ws_list;
-    for(int i =0; i<WORKSPACE_AMOUNT;i++){
-        ws_tmp=calloc(1, sizeof(ID));
-        ws_tmp->id=i;
-        ws_tmp=ws_tmp->next;
+    tmp->ws_id=1;
+    ID *ws_ids=calloc(1, sizeof(ID));
+    ws_ids->id=1;
+    for(int j =2; i<=WORKSPACE_AMOUNT;i++){
+        ID  *ws_tmp=calloc(1, sizeof(ID));
+        ws_tmp->id=j;
+        ws_tmp->prev=ws_ids;
+        ws_ids->next=ws_tmp;
+        ws_ids=ws_ids->next;
     }
-    screen_data *scr_tmp = screens->first;
+    tmp->ws_list=ws_ids;
+
+    if(!screens->first){
+        screens->first=tmp;
+        continue;
+    }
+
+    screen_data *scr_tmp=screens->first;
     while(scr_tmp!=NULL)
         scr_tmp=scr_tmp->next;
     scr_tmp=tmp;
-
     free(crtc);
     free(output);
     }
@@ -71,7 +69,7 @@ screen_data *get_current_screen() {
     xcb_query_pointer_reply_t * poin = xcb_query_pointer_reply(d, coord, 0);
     int x = poin->root_x;
     screen_data *tmp = screens->first;
-    for(int i =0; i<screens->len; i++){ 
+    for(int i=0; i<screens->len; i++){ 
         if((tmp->x + tmp->width) >= x && (x >= tmp->x)){
             return tmp;
         }
@@ -80,30 +78,32 @@ screen_data *get_current_screen() {
     return tmp;
 }
 
-void ws_switch(screen_data *scr_switch, bool right){
-    ID *tmp = scr_switch->ws_list, *prev=tmp;
-    while(tmp!=NULL&&tmp->id!=scr_switch->ws_id){
+//workspace operations
+
+void ws_switch(xcb_window_t win, bool right){
+    UNUSED(win);
+    screen_data *scr_tmp=get_current_screen();
+    ID *tmp = scr_tmp->ws_list, *prev=tmp;
+    while(tmp!=NULL&&tmp->id!=scr_tmp->ws_id){
         prev=tmp;
         tmp=tmp->next;
     }
     if(tmp==NULL||(right?tmp->next:prev)==NULL)
         return;
     Window *win_tmp=cur;
-    while(win_tmp->next){
-        if(win_tmp->ws_id==scr_switch->ws_id)
+    while(win_tmp!=NULL){
+        if(win_tmp->ws_id==scr_tmp->ws_id&&win_tmp->scr_id==scr_tmp->id)
             xcb_unmap_window(d, *win_tmp->win);
         win_tmp=win_tmp->next;
     }
-    scr_switch->ws_id=right?tmp->next->id:prev->id;
+    scr_tmp->ws_id=right?(tmp->next?tmp->id:tmp->next->id):prev->id;
     win_tmp=cur;
-    while(win_tmp->next){
-        if(win_tmp->ws_id==scr_switch->ws_id)
+    while(win_tmp!=NULL){
+        if(win_tmp->ws_id==scr_tmp->ws_id&&win_tmp->scr_id==scr_tmp->id)
             xcb_map_window(d, *win_tmp->win);
         win_tmp=win_tmp->next;
     }
 }
-
-//workspace operations
 
 void win_switch(xcb_window_t win, bool right){
     Window *win_tmp = cur;
