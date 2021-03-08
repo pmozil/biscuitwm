@@ -64,5 +64,17 @@ props window_props(Window *win) {
 		xcb_ewmh_get_atoms_reply_wipe(&win_type);
 	}
 	}
+	if(rule.dock||!rule.manage){
+		Window *tmp=calloc(1, sizeof(Window));
+		tmp->win=win->win;
+		tmp->rule=rule;
+		screen_data *scr_tmp=get_current_screen();
+		tmp->ws_id=scr_tmp->ws_id;
+		tmp->scr_id=scr_tmp->id;
+		Window *win_tmp= dock_list;
+		while(win_tmp!=NULL)
+			win_tmp=win_tmp->next;
+		win_tmp=tmp;
+	}
 	return rule;
 }

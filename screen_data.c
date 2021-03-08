@@ -20,7 +20,7 @@ void get_screen_data() {
     int len = xcb_randr_get_screen_resources_current_outputs_length(reply);
     screens = (screen_data_t *)calloc(1, sizeof(screen_data_t));
     screens->len = len;
-    for (int i = 1; i <= len; i++) {
+    for (int i = 0; i < len; i++) {
     xcb_randr_get_output_info_reply_t *output = xcb_randr_get_output_info_reply(
             d, xcb_randr_get_output_info(d, randr_outputs[i], timestamp), NULL);
     if (output == NULL)
@@ -41,7 +41,7 @@ void get_screen_data() {
     tmp->ws_id=1;
     ID *ws_ids=calloc(1, sizeof(ID));
     ws_ids->id=1;
-    for(int j =2; i<=WORKSPACE_AMOUNT;i++){
+    for(int j =2; j<=WORKSPACE_AMOUNT;j++){
         ID  *ws_tmp=calloc(1, sizeof(ID));
         ws_tmp->id=j;
         ws_tmp->prev=ws_ids;
@@ -50,8 +50,10 @@ void get_screen_data() {
     }
     tmp->ws_list=ws_ids;
 
-    if(!screens->first){
+    if(screens->first==NULL){
         screens->first=tmp;
+        free(crtc);
+        free(output);
         continue;
     }
 
@@ -69,11 +71,14 @@ screen_data *get_current_screen() {
     xcb_query_pointer_reply_t * poin = xcb_query_pointer_reply(d, coord, 0);
     int x = poin->root_x;
     screen_data *tmp = screens->first;
-    for(int i=0; i<screens->len; i++){ 
+    while(tmp!=NULL){
         if((tmp->x + tmp->width) >= x && (x >= tmp->x)){
             return tmp;
         }
-        tmp = tmp->next?tmp->next:tmp;
+        tmp = tmp->next;
+    }
+    if(tmp==NULL){
+        tmp = screens->first;
     }
     return tmp;
 }

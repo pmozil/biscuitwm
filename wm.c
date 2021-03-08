@@ -18,16 +18,20 @@ static uint32_t values[3];
 xcb_connection_t *d;
 xcb_screen_t *scr;
 xcb_window_t win;
-Window *cur;
+Window *cur, *dock_list;
 
 #include "ewmh.h"
 
 
 int breaker(){
     Window *tmp = cur;
-    while(tmp) {
-        if(*tmp->win==win&&(!tmp->rule.manage||tmp->rule.dock)) {
-        return 1;
+    while(tmp!=NULL) {
+        if(*tmp->win==win) {
+            Window *win_tmp = dock_list;
+            while(win_tmp!=NULL){
+                if(*win_tmp->win==*tmp->win)
+                    return 1;
+            }
         }
         tmp = tmp->next;
     }
@@ -62,11 +66,11 @@ static void killclient(xcb_window_t win, bool right) {
 }
 
 static void handleButtonPress(xcb_generic_event_t * ev) {
+    xcb_button_press_event_t  * e = (xcb_button_press_event_t *) ev;
+	win = e->child;
     int breakCondition = breaker();
     if(breakCondition)
         return;
-    xcb_button_press_event_t  * e = (xcb_button_press_event_t *) ev;
-	win = e->child;
     values[0] = XCB_STACK_MODE_ABOVE;
     xcb_configure_window(d, win, XCB_CONFIG_WINDOW_STACK_MODE, values);
     values[2] = ((1 == e->detail) ? 1 : ((win != 0) ? 3 : 0 ));
@@ -188,12 +192,12 @@ static void handleMapRequest(xcb_generic_event_t * ev) {
 static void handleCreateRequest(xcb_generic_event_t *ev) {
     xcb_create_notify_event_t *e = (xcb_create_notify_event_t  *) ev;
     Window *next = cur, *new = (Window *) calloc(1, sizeof(Window));
-//    screen_data *scr_tmp = get_current_screen();
+    screen_data *scr_tmp = get_current_screen();
     new->win = &e->window;
     new->next = NULL;
     new->rule = window_props(new);
-//    new->ws_id = scr_tmp->ws_id;
-//    new->scr_id = scr_tmp->id;
+    new->ws_id = scr_tmp->ws_id;
+    new->scr_id = scr_tmp->id;
     while (next!=NULL)
         next = next->next;
     next=new;

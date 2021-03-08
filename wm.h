@@ -56,6 +56,6 @@ static handler_func win_props[] = {
 
 static Key keys[] = {
     { MOD1,      0x0071, false, killclient},    /* 0x0071 = XK_q */
-//    { MOD1,      0x006d, true,  ws_switch},    // 0x006d = XK_m
-//    { MOD1,      0x006e, false, ws_switch},    // 0x006e = XK_n
+    { MOD1,      0x006d, true,  ws_switch},    // 0x006d = XK_m
+    { MOD1,      0x006e, false, ws_switch},    // 0x006e = XK_n
 };
