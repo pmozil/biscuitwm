@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "xcb.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "Disabled"
+}

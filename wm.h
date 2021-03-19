@@ -1,8 +1,13 @@
+#include <stdbool.h>
+#include "screen_data.h"
+
+#ifndef WM
+#define WM
 typedef struct {
     unsigned int mod;
     xcb_keysym_t keysym;
-    void (*func)(char **com);
-    char **com;
+    bool arg;
+    void (*func)(xcb_window_t, bool);
 } Key;
 
 typedef struct {
@@ -10,6 +15,10 @@ typedef struct {
     void (*func)(xcb_generic_event_t * ev);
 } handler_func_t;
 
+typedef struct {
+    uint32_t request;
+} handler_func;
+#endif
 #define MOD1                   XCB_MOD_MASK_4
 #define MOD2                   XCB_MOD_MASK_SHIFT
 
@@ -22,12 +31,18 @@ static void handleButtonPress(xcb_generic_event_t * ev);
 static void handleButtonRelease(xcb_generic_event_t * ev);
 static void handleKeyPress(xcb_generic_event_t * ev);
 static void handleMapRequest(xcb_generic_event_t * ev);
-static void killclient(char **com);
+static void killclient(xcb_window_t win, bool right);
+static void setFocus(xcb_window_t win);
+void handleClientMessage(xcb_generic_event_t *e);
+static void handleConfigureRequest(xcb_generic_event_t * ev);
+int breaker();
 static xcb_keycode_t * xcb_get_keycodes(xcb_keysym_t keysym);
 static xcb_keysym_t    xcb_get_keysym(xcb_keycode_t keycode);
-
+#ifndef WM_PROPS
+#define WM_PROPS
 static handler_func_t handler_funs[] = {
     { XCB_CREATE_NOTIFY,  handleCreateRequest },
+    {XCB_CONFIGURE_REQUEST, handleConfigureRequest},
     { XCB_MOTION_NOTIFY,  handleMotionNotify },
     { XCB_ENTER_NOTIFY,   handleEnterNotify },
     { XCB_DESTROY_NOTIFY, handleDestroyRequest },
@@ -35,9 +50,20 @@ static handler_func_t handler_funs[] = {
     { XCB_BUTTON_RELEASE, handleButtonRelease },
     { XCB_KEY_PRESS,      handleKeyPress },
     { XCB_MAP_REQUEST,    handleMapRequest },
+    { XCB_CLIENT_MESSAGE, handleClientMessage },
     { XCB_NONE,           NULL }
 };
 
-static Key keys[] = {
-    { MOD1,      0x0071, killclient, NULL },    /* 0x0071 = XK_q */
+static handler_func win_props[] = {
+        { XCB_MOTION_NOTIFY },
+        { XCB_DESTROY_NOTIFY },
+        { XCB_MAP_REQUEST },
+        {0}
 };
+
+static Key keys[] = {
+    { MOD1,      0x0071, false, killclient},    /* 0x0071 = XK_q */
+    { MOD1,      0x006d, true,  ws_switch},    // 0x006d = XK_m
+    { MOD1,      0x006e, false, ws_switch},    // 0x006e = XK_n
+};
+#endif

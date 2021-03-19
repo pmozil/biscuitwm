@@ -1,13 +1,13 @@
-typedef struct screen_data{
-    int width, height, x, y;
-    struct screen_data *next;
-} screen_data;
+#include "window.h"
 
-typedef struct screen_data_t{
-    int len;
-    struct screen_data *first, *last, *iter;
-} screen_data_t;
+#ifndef SCREEN_DATA
+#define SCREEN_DATA
 
 extern screen_data_t *screens;
 void get_screen_data();
-int get_window_x(int window_width);
+screen_data *get_current_screen();
+int get_ws_id();
+void ws_switch(xcb_window_t win, bool right);
+void win_switch(xcb_window_t win, bool right);
+void win_unmap(xcb_window_t win, bool eh);
+#endif
