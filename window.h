@@ -10,7 +10,7 @@ typedef struct{
 typedef struct Window{
     xcb_window_t *win;
     int ws_id, scr_id;
-    uint32_t *vals;
+    uint32_t vals[4];
     props rule;
     struct Window *next;
 }Window;

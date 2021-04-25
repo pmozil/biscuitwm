@@ -18,23 +18,22 @@ static uint32_t values[3];
 xcb_connection_t *d;
 xcb_screen_t *scr;
 xcb_window_t win;
-Window *cur, *dock_list;
+Window *cur;
 
 #include "ewmh.h"
 
-int breaker(){
-    Window *tmp = cur;
-    while(tmp!=NULL) {
-        if(*tmp->win==win) {
-            Window *win_tmp = dock_list;
-            while(win_tmp!=NULL){
-                if(*win_tmp->win==*tmp->win)
-                    return 1;
-            }
-        }
-        tmp = tmp->next;
-    }
-    return 0;
+int manage(xcb_window_t win){
+    xcb_ewmh_get_atoms_reply_t win_type;
+	if (xcb_ewmh_get_wm_window_type_reply(ewmh, xcb_ewmh_get_wm_window_type(ewmh, win), &win_type,NULL) == 1) {
+	for(unsigned int i = 0; i<win_type.atoms_len; i++){
+		xcb_atom_t a = win_type.atoms[i];
+		if(a == ewmh->_NET_WM_WINDOW_TYPE_DESKTOP ||
+			a == ewmh->_NET_WM_WINDOW_TYPE_NOTIFICATION||
+			a == ewmh->_NET_WM_WINDOW_TYPE_DOCK)
+			return 0;
+		}
+	}
+    return 1;
 }
 
 static void killclient(xcb_window_t win, bool right) {
@@ -67,9 +66,6 @@ static void killclient(xcb_window_t win, bool right) {
 
 static void handleButtonPress(xcb_generic_event_t * ev) {
     xcb_button_press_event_t  * e = (xcb_button_press_event_t *) ev;
-    int breakCondition = breaker();
-    if(breakCondition)
-        return;
     values[0] = XCB_STACK_MODE_ABOVE;
     win = e->child;
     xcb_configure_window(d, win, XCB_CONFIG_WINDOW_STACK_MODE, values);
@@ -81,11 +77,18 @@ static void handleButtonPress(xcb_generic_event_t * ev) {
 }
 
 static void handleMotionNotify(xcb_generic_event_t * ev) {
-    int breakCondition = breaker();
-    if(breakCondition)
-        return;
-    UNUSED(ev);
-    xcb_query_pointer_cookie_t coord = xcb_query_pointer(d, scr->root);
+	UNUSED(ev);
+    xcb_ewmh_get_atoms_reply_t win_type;
+	if (xcb_ewmh_get_wm_window_type_reply(ewmh, xcb_ewmh_get_wm_window_type(ewmh, win), &win_type,NULL) == 1) {
+	for(unsigned int i = 0; i<win_type.atoms_len; i++){
+		xcb_atom_t a = win_type.atoms[i];
+		if( a == ewmh->_NET_WM_WINDOW_TYPE_DESKTOP ||
+		    a== ewmh->_NET_WM_WINDOW_TYPE_NOTIFICATION||
+			a == ewmh->_NET_WM_WINDOW_TYPE_DOCK)
+			return ;
+		}
+	}
+	xcb_query_pointer_cookie_t coord = xcb_query_pointer(d, scr->root);
     xcb_query_pointer_reply_t * poin = xcb_query_pointer_reply(d, coord, 0);
     xcb_get_geometry_cookie_t cookie;
     xcb_get_geometry_reply_t *reply;
@@ -179,11 +182,6 @@ static void handleMapRequest(xcb_generic_event_t * ev) {
     vals[3] = reply->height?reply->height:1080;
     vals[4] = 1;
     free(reply);
-    Window *win_tmp = cur;
-    while(win_tmp!=NULL && * win_tmp->win!=win)
-        win_tmp=win_tmp->next;
-    if(win_tmp!=NULL)
-        win_tmp->scr_id=scr_tmp->id;
     xcb_configure_window(d, e->window, XCB_CONFIG_WINDOW_X |
         XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |
         XCB_CONFIG_WINDOW_HEIGHT | XCB_CONFIG_WINDOW_BORDER_WIDTH, vals);
@@ -213,10 +211,13 @@ static void handleCreateRequest(xcb_generic_event_t *ev) {
     vals[2] = reply->width?reply->width:1920;
     vals[3] = reply->height?reply->height:1080;
     vals[4] = 1;
-    new->vals = vals;
+    xcb_configure_window(d, e->window, XCB_CONFIG_WINDOW_X |
+        XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |
+        XCB_CONFIG_WINDOW_HEIGHT | XCB_CONFIG_WINDOW_BORDER_WIDTH, vals);
     while (next!=NULL)
         next = next->next;
     next=new;
+		ewmh_set_supporting(e->window);
     xcb_map_window(d, e->window);
     xcb_flush(d);
 }
@@ -236,17 +237,13 @@ void handleClientMessage(xcb_generic_event_t *e)
     if (ev->type == ewmh->_NET_CURRENT_DESKTOP) {
     	setFocus(ev->window);
 		return;
-	}
-
-	/*if (ev->type == ewmh->_NET_WM_STATE) {
-		handle_state(loc.monitor, loc.desktop, loc.node, ev->data.data32[1], ev->data.data32[0]);
-		handle_state(loc.monitor, loc.desktop, loc.node, ev->data.data32[2], ev->data.data32[0]);
-	} else*/ if (ev->type == ewmh->_NET_ACTIVE_WINDOW) {
+	} else if (ev->type == ewmh->_NET_ACTIVE_WINDOW) {
 		if ((ev->data.data32[0] == XCB_EWMH_CLIENT_SOURCE_TYPE_NORMAL) ||
 		    ev->window == scr->root) {
+			win = ev->window;
+			setFocus(ev->window);
 			return;
 		}
-		setFocus(ev->window);
 	} else if (ev->type == ewmh->_NET_WM_DESKTOP) {
 		screen_data *scr_tmp = screens->first;
         for(int j=1; j<(int)ev->data.data32[0]; j++){
@@ -337,20 +334,46 @@ void executeRcFile(){
     }
 }
 /*
-void handle_state(monitor_t *m, desktop_t *d, node_t *n, xcb_atom_t state, unsigned int action)
+void handle_state(xcb_atom_t state, unsigned int action)
 {
+
+    xcb_get_geometry_cookie_t geom_now = xcb_get_geometry(d, win);
+    xcb_get_geometry_reply_t* geom = xcb_get_geometry_reply(d, geom_now, NULL);
+    screen_data *scr_tmp = get_current_screen();
 	if (state == ewmh->_NET_WM_STATE_FULLSCREEN) {
 		if (action == XCB_EWMH_WM_STATE_ADD && (ignore_ewmh_fullscreen & STATE_TRANSITION_ENTER) == 0) {
-			set_state(m, d, n, STATE_FULLSCREEN);
-		} else if (action == XCB_EWMH_WM_STATE_REMOVE && (ignore_ewmh_fullscreen & STATE_TRANSITION_EXIT) == 0) {
+            uint32_t vals[4];
+            vals[0] = scr_tmp->x;
+            vals[1] = scr_tmp->y;
+            vals[2] = scr_tmp->width;
+            vals[3] = scr_tmp->height;
+			win->x = geom->x;
+            win->y = geom->y;
+            win->width =  geom->width;
+            win->height =  geom->height; 
+            xcb_configure_window(d, win, XCB_CONFIG_WINDOW_X |
+            XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |
+            XCB_CONFIG_WINDOW_HEIGHT, vals);
+		}
+        else if (action == XCB_EWMH_WM_STATE_REMOVE && (ignore_ewmh_fullscreen & STATE_TRANSITION_EXIT) == 0) {
 			if (n->client->state == STATE_FULLSCREEN) {
-				set_state(m, d, n, n->client->last_state);
+                uint32_t vals[4];
+                
+				xcb_configure_window(d, win, XCB_CONFIG_WINDOW_X |
+            XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |
+            XCB_CONFIG_WINDOW_HEIGHT, win->vals);
 			}
+        }
 		} else if (action == XCB_EWMH_WM_STATE_TOGGLE) {
-			client_state_t next_state = IS_FULLSCREEN(n->client) ? n->client->last_state : STATE_FULLSCREEN;
-			if ((next_state == STATE_FULLSCREEN && (ignore_ewmh_fullscreen & STATE_TRANSITION_ENTER) == 0) ||
-			    (next_state != STATE_FULLSCREEN && (ignore_ewmh_fullscreen & STATE_TRANSITION_EXIT) == 0)) {
-				set_state(m, d, n, next_state);
+			int isFullscreen = geom->x==scr_tmp->x&&geom->y==scr_tmp->y&&geom->width==scr_tmp->width&&geom->height==scr_tmp->height;
+            uint32_t vals[4];
+            vals[0] = ifFullscreeen?scr_tmp->x:win->x;
+            vals[1] = ifFullscreeen?scr_tmp->y:win->y;
+            vals[2] = ifFullscreeen?scr_tmp->width:win->width;
+            vals[3] = ifFullscreeen?scr_tmp->height:win->height;
+            xcb_configure_window(d, win, XCB_CONFIG_WINDOW_X |
+            XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |
+            XCB_CONFIG_WINDOW_HEIGHT, vals);
 			}
 		}
 		arrange(m, d);
@@ -382,14 +405,6 @@ void handle_state(monitor_t *m, desktop_t *d, node_t *n, xcb_atom_t state, unsig
 		} else if (action == XCB_EWMH_WM_STATE_TOGGLE) {
 			set_hidden(m, d, n, !n->hidden);
 		}
-	} else if (state == ewmh->_NET_WM_STATE_STICKY) {
-		if (action == XCB_EWMH_WM_STATE_ADD) {
-			set_sticky(m, d, n, true);
-		} else if (action == XCB_EWMH_WM_STATE_REMOVE) {
-			set_sticky(m, d, n, false);
-		} else if (action == XCB_EWMH_WM_STATE_TOGGLE) {
-			set_sticky(m, d, n, !n->sticky);
-		}
 	} else if (state == ewmh->_NET_WM_STATE_DEMANDS_ATTENTION) {
 		if (action == XCB_EWMH_WM_STATE_ADD) {
 			set_urgent(m, d, n, true);
@@ -398,24 +413,6 @@ void handle_state(monitor_t *m, desktop_t *d, node_t *n, xcb_atom_t state, unsig
 		} else if (action == XCB_EWMH_WM_STATE_TOGGLE) {
 			set_urgent(m, d, n, !n->client->urgent);
 		}
-#define HANDLE_WM_STATE(s)  \
-	} else if (state == ewmh->_NET_WM_STATE_##s) { \
-		if (action == XCB_EWMH_WM_STATE_ADD) { \
-			n->client->wm_flags |= WM_FLAG_##s; \
-		} else if (action == XCB_EWMH_WM_STATE_REMOVE) { \
-			n->client->wm_flags &= ~WM_FLAG_##s; \
-		} else if (action == XCB_EWMH_WM_STATE_TOGGLE) { \
-			n->client->wm_flags ^= WM_FLAG_##s; \
-		} \
-		ewmh_wm_state_update(n);
-	HANDLE_WM_STATE(MODAL)
-	HANDLE_WM_STATE(MAXIMIZED_VERT)
-	HANDLE_WM_STATE(MAXIMIZED_HORZ)
-	HANDLE_WM_STATE(SHADED)
-	HANDLE_WM_STATE(SKIP_TASKBAR)
-	HANDLE_WM_STATE(SKIP_PAGER)
-	}
-#undef HANDLE_WM_STATE
 }*/
 
 

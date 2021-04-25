@@ -1,5 +1,7 @@
 #include <xcb/xcb.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 #include "ewmh.h"
 
 xcb_ewmh_connection_t *ewmh;
@@ -17,6 +19,15 @@ void ewmh_init(void) {
 
 void ewmh_update_active_window(void) {
 	xcb_ewmh_set_active_window(ewmh, screens->len, win);
+}
+
+void ewmh_set_supporting(xcb_window_t win)
+{
+	pid_t wm_pid = getpid();
+	xcb_ewmh_set_supporting_wm_check(ewmh, scr->root, win);
+	xcb_ewmh_set_supporting_wm_check(ewmh, win, win);
+	xcb_ewmh_set_wm_name(ewmh, win, strlen(WM_NAME), WM_NAME);
+	xcb_ewmh_set_wm_pid(ewmh, win, wm_pid);
 }
 
 void ewmh_update_client_list() {
@@ -66,7 +77,8 @@ props window_props(Window *win) {
 	}
 	return rule;
 }
-/*void ewmh_wm_state_update(Window *w) {
+/*
+void ewmh_wm_state_update(Window *w) {
      size_t count = 0;
      uint32_t values[12];
  #define HANDLE_WM_STATE(s)  \
@@ -86,9 +98,8 @@ props window_props(Window *win) {
      HANDLE_WM_STATE(BELOW)
      HANDLE_WM_STATE(DEMANDS_ATTENTION)
  #undef HANDLE_WM_STATE
-     xcb_ewmh_set_wm_state(ewmh, w->win, count, values);
+     xcb_ewmh_set_wm_state(ewmh, *w->win, count, values);
 }
-
 void ewmh_set_supporting(xcb_window_t win) {
 	pid_t wm_pid = getpid();
 	xcb_ewmh_set_supporting_wm_check(ewmh, scr->root, win);
