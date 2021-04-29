@@ -15,9 +15,6 @@ typedef struct {
     void (*func)(xcb_generic_event_t * ev);
 } handler_func_t;
 
-typedef struct {
-    uint32_t request;
-} handler_func;
 #endif
 #define MOD1                   XCB_MOD_MASK_4
 #define MOD2                   XCB_MOD_MASK_SHIFT
@@ -54,16 +51,7 @@ static handler_func_t handler_funs[] = {
     { XCB_NONE,           NULL }
 };
 
-static handler_func win_props[] = {
-        { XCB_MOTION_NOTIFY },
-        { XCB_DESTROY_NOTIFY },
-        { XCB_MAP_REQUEST },
-        {0}
-};
-
 static Key keys[] = {
     { MOD1,      0x0071, false, killclient},    /* 0x0071 = XK_q */
-    { MOD1,      0x006d, true,  ws_switch},    // 0x006d = XK_m
-    { MOD1,      0x006e, false, ws_switch},    // 0x006e = XK_n
 };
 #endif
