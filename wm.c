@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <xcb/shape.h>
 #include "wm.h"
-#include "rounded_corners.h"
+//#include "rounded_corners.h"
 
 
 #define UNUSED(x) (void)(x)
@@ -17,7 +17,7 @@ xcb_connection_t *d;
 xcb_screen_t *scr;
 xcb_window_t win;
 Window *cur;
-xcb_randr_output_t *scrs;
+screen_data_t *screens;
 
 #include "ewmh.h"
 
@@ -42,7 +42,7 @@ static void killclient(xcb_window_t win, bool right) {
 
     xcb_ewmh_get_atoms_reply_t win_type;
 	if (xcb_ewmh_get_wm_window_type_reply(ewmh, xcb_ewmh_get_wm_window_type(ewmh, win), &win_type,NULL) == 1) {
-	for(unsigned int i = 0; i<win_type.atoms_len; i++){
+	for(unsigned int i = 1; i<win_type.atoms_len; i++){
 		xcb_atom_t a = win_type.atoms[i];
 		if( a == ewmh->_NET_WM_WINDOW_TYPE_DESKTOP ||
 		    a== ewmh->_NET_WM_WINDOW_TYPE_NOTIFICATION||
@@ -216,6 +216,9 @@ static void handleCreateRequest(xcb_generic_event_t *ev) {
     vals[2] = reply->width?reply->width:1920;
     vals[3] = reply->height?reply->height:1080;
     vals[4] = 1;
+    screen_data *scr_tmp = get_current_screen();
+    new->scr_id = scr_tmp->id;
+    new->ws_id = scr_tmp->ws_id;
     xcb_configure_window(d, e->window, XCB_CONFIG_WINDOW_X |
         XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |
         XCB_CONFIG_WINDOW_HEIGHT | XCB_CONFIG_WINDOW_BORDER_WIDTH, vals);
@@ -279,7 +282,6 @@ static int eventHandler(void) {
         for (handler = handler_funs; handler->func != NULL; handler++) {
             if ((ev->response_type & ~0x80) == handler->request) {
                 handler->func(ev);
-//                window_rounded_border(win, 14);
             }
         }
     }
