@@ -10,7 +10,7 @@ extern int workspace_amount;
 
 #define UNUSED(x) (void)(x)
 
-void append_to_screens(xcb_randr_get_crtc_info_reply_t *crtc ) {
+void append_to_screens(xcb_randr_get_crtc_info_reply_t *crtc, uint32_t id ) {
     screen_data *tmp = (screen_data *) calloc(1, sizeof(screen_data)), *insert = screens->first;
     tmp->y = crtc->y;
     tmp->x = crtc->x;
@@ -18,14 +18,9 @@ void append_to_screens(xcb_randr_get_crtc_info_reply_t *crtc ) {
     tmp->height = crtc->height;
     tmp->next = NULL;
     tmp->ws_id=1;
-    uint32_t i = 1;
-
-    while(insert!=NULL){
-        insert=insert->next;
-        ++i;
-    }
-    tmp->id=i;
-    insert=tmp;
+    tmp->id = id+1;
+    tmp->next = insert;
+    screens->first = tmp;
     return;
 }
 
@@ -48,7 +43,7 @@ void get_screen_data() {
 
     xcb_randr_get_crtc_info_reply_t *crtc = xcb_randr_get_crtc_info_reply(d,
             xcb_randr_get_crtc_info(d, output->crtc, timestamp), NULL);
-    append_to_screens(crtc);
+    append_to_screens(crtc, i);
     free(crtc);
     free(output);
     }
@@ -69,4 +64,33 @@ screen_data *get_current_screen(){
         tmp = screens->first;
     }
     return tmp;
+}
+
+void ws_switch(xcb_window_t win, int right){
+    UNUSED(win);
+    screen_data *scr_tmp=get_current_screen();
+    Window *win_tmp=cur;
+    if((win_tmp==NULL)|(scr_tmp==NULL))
+        return;
+    while(win_tmp!=NULL){
+        if((win_tmp->ws_id==scr_tmp->ws_id)&(win_tmp->scr_id==scr_tmp->id))
+            xcb_unmap_window(d, *win_tmp->win);
+        win_tmp=win_tmp->next;
+		}
+    scr_tmp->ws_id = right?(scr_tmp->ws_id+1):(scr_tmp->ws_id-1);
+    win_tmp=cur;
+    while(win_tmp!=NULL){
+        if((win_tmp->ws_id==scr_tmp->ws_id)&(win_tmp->scr_id==scr_tmp->id))
+            xcb_map_window(d, *win_tmp->win);
+        win_tmp=win_tmp->next;
+		}
+}
+void win_switch(xcb_window_t win, int right){
+		Window *win_tmp = cur;
+    while(win_tmp!=NULL&&*win_tmp->win!=win)
+        win_tmp=win_tmp->next;
+		if(win_tmp==NULL)
+			return;
+    win_tmp->ws_id+=right?(1):(-1);
+    xcb_unmap_window(d, win);
 }

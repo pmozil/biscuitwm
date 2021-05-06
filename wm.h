@@ -6,8 +6,8 @@
 typedef struct {
     unsigned int mod;
     xcb_keysym_t keysym;
-    bool arg;
-    void (*func)(xcb_window_t, bool);
+    int arg;
+    void (*func)(xcb_window_t, int);
 } Key;
 
 typedef struct {
@@ -28,7 +28,7 @@ static void handleButtonPress(xcb_generic_event_t * ev);
 static void handleButtonRelease(xcb_generic_event_t * ev);
 static void handleKeyPress(xcb_generic_event_t * ev);
 static void handleMapRequest(xcb_generic_event_t * ev);
-static void killclient(xcb_window_t win, bool right);
+static void killclient(xcb_window_t win, int right);
 static void setFocus(xcb_window_t win);
 void handleClientMessage(xcb_generic_event_t *e);
 static void handleConfigureRequest(xcb_generic_event_t * ev);
@@ -52,6 +52,8 @@ static handler_func_t handler_funs[] = {
 };
 
 static Key keys[] = {
-    { MOD1,      0x0071, false, killclient},    /* 0x0071 = XK_q */
+    { MOD1,      0x0071, 0, killclient},/* 0x0071 = XK_q */
+    { MOD1,      0x006d, 1, ws_switch},    // 0x006d = XK_m
+    { MOD1,      0x006e, 0, ws_switch},    //00x0066e = XM_n
 };
 #endif

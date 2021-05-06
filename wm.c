@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <xcb/shape.h>
 #include "wm.h"
-//#include "rounded_corners.h"
+#include "rounded_corners.h"
 
 
 #define UNUSED(x) (void)(x)
@@ -21,28 +21,14 @@ screen_data_t *screens;
 
 #include "ewmh.h"
 
-int manage(xcb_window_t win){
-    xcb_ewmh_get_atoms_reply_t win_type;
-	if (xcb_ewmh_get_wm_window_type_reply(ewmh, xcb_ewmh_get_wm_window_type(ewmh, win), &win_type,NULL) == 1) {
-	for(unsigned int i = 0; i<win_type.atoms_len; i++){
-		xcb_atom_t a = win_type.atoms[i];
-		if(a == ewmh->_NET_WM_WINDOW_TYPE_DESKTOP ||
-			a == ewmh->_NET_WM_WINDOW_TYPE_NOTIFICATION||
-			a == ewmh->_NET_WM_WINDOW_TYPE_DOCK)
-			return 0;
-		}
-	}
-    return 1;
-}
-
-static void killclient(xcb_window_t win, bool right) {
+static void killclient(xcb_window_t win, int right) {
     Window *tmp = cur, *prev = cur;
 
     UNUSED(right);
 
     xcb_ewmh_get_atoms_reply_t win_type;
-	if (xcb_ewmh_get_wm_window_type_reply(ewmh, xcb_ewmh_get_wm_window_type(ewmh, win), &win_type,NULL) == 1) {
-	for(unsigned int i = 1; i<win_type.atoms_len; i++){
+		if (xcb_ewmh_get_wm_window_type_reply(ewmh, xcb_ewmh_get_wm_window_type(ewmh, win), &win_type,NULL) == 1) {
+		for(unsigned int i = 0; i<win_type.atoms_len; i++){
 		xcb_atom_t a = win_type.atoms[i];
 		if( a == ewmh->_NET_WM_WINDOW_TYPE_DESKTOP ||
 		    a== ewmh->_NET_WM_WINDOW_TYPE_NOTIFICATION||
@@ -50,19 +36,26 @@ static void killclient(xcb_window_t win, bool right) {
 			return ;
 		}
 	}
+    if(cur==tmp){
+        tmp = tmp->next;
+        free(cur);
+        cur = tmp;
+        xcb_kill_client(d, win); 
+        return;
+    }
 
     while (tmp!=NULL && *tmp->win != win) { 
         prev = tmp; 
         tmp = tmp->next; 
     }
 
+		if(*tmp->win == scr->root)
+			return;
+
     if(tmp==NULL){
         xcb_kill_client(d, win); 
         return;
     }
-
-    if(*tmp->win==scr->root)
-        return;
 
     prev->next = NULL;
     win = *prev->win;
@@ -93,7 +86,7 @@ static void handleMotionNotify(xcb_generic_event_t * ev) {
 	for(unsigned int i = 0; i<win_type.atoms_len; i++){
 		xcb_atom_t a = win_type.atoms[i];
 		if( a == ewmh->_NET_WM_WINDOW_TYPE_DESKTOP ||
-		    a== ewmh->_NET_WM_WINDOW_TYPE_NOTIFICATION||
+	    a== ewmh->_NET_WM_WINDOW_TYPE_NOTIFICATION||
 			a == ewmh->_NET_WM_WINDOW_TYPE_DOCK)
 			return ;
 		}
@@ -203,31 +196,31 @@ static void handleMapRequest(xcb_generic_event_t * ev) {
 
 static void handleCreateRequest(xcb_generic_event_t *ev) {
     xcb_create_notify_event_t *e = (xcb_create_notify_event_t  *) ev;
-    Window *next = cur, *new = (Window *) calloc(1, sizeof(Window));
+    Window *next = cur, *new = (Window *) malloc(sizeof(Window));
     new->win = &e->window;
-    new->next = NULL;
+    new->next = next;
     xcb_get_geometry_cookie_t cookie;
     xcb_get_geometry_reply_t *reply;
     cookie = xcb_get_geometry(d, e->window);
     reply = xcb_get_geometry_reply(d, cookie, NULL);
-    uint32_t vals[5];
+    uint32_t vals[4];
     vals[0] = reply->x?reply->x:0;
     vals[1] = reply->y?reply->y:0;
     vals[2] = reply->width?reply->width:1920;
     vals[3] = reply->height?reply->height:1080;
-    vals[4] = 1;
     screen_data *scr_tmp = get_current_screen();
     new->scr_id = scr_tmp->id;
     new->ws_id = scr_tmp->ws_id;
+    new->x = vals[0];
+    new->y = vals[1];
+    new->width = vals[2];
+    new->height = vals[3];
     xcb_configure_window(d, e->window, XCB_CONFIG_WINDOW_X |
-        XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |
-        XCB_CONFIG_WINDOW_HEIGHT | XCB_CONFIG_WINDOW_BORDER_WIDTH, vals);
-    while (next!=NULL)
-        next = next->next;
-    next=new;
-	ewmh_set_supporting(e->window);
-    xcb_map_window(d, e->window);
-    xcb_flush(d);
+    	XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |
+    	XCB_CONFIG_WINDOW_HEIGHT, vals);
+		ewmh_set_supporting(e->window);
+		xcb_map_window(d, e->window);
+	cur = new;
 }
 
 static void handleDestroyRequest(xcb_generic_event_t *ev) {
@@ -253,10 +246,10 @@ void handleClientMessage(xcb_generic_event_t *e)
 			return;
 		}
 	} else if (ev->type == ewmh->_NET_WM_DESKTOP) {
-	    /*screen_data *scr_tmp = screens->first;
+	    	screen_data *scr_tmp = screens->first;
         for(int j=1; j<(int)ev->data.data32[0]; j++){
             scr_tmp = scr_tmp->next?scr_tmp->next:scr_tmp;
-        }*/
+        }
         uint32_t vals[5];
         vals[0] = 0;
         vals[1] = 0;
@@ -284,6 +277,7 @@ static int eventHandler(void) {
                 handler->func(ev);
             }
         }
+			window_rounded_border(win, 8);
     }
     xcb_flush(d);
     return ret;
@@ -312,9 +306,6 @@ static void setup(void) {
                 XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC );
         }
     }
-    cur = (Window *) calloc(1, sizeof(Window));
-    cur->win = &scr->root;
-    cur->next = NULL;
     xcb_flush(d);
     xcb_grab_button(d, 0, scr->root, XCB_EVENT_MASK_BUTTON_PRESS |
         XCB_EVENT_MASK_BUTTON_RELEASE, XCB_GRAB_MODE_ASYNC,
@@ -409,6 +400,13 @@ int main() {
         scr = xcb_setup_roots_iterator(xcb_get_setup(d)).data;
         setup();
     }
+    cur = (Window *) calloc(1, sizeof(Window));
+	cur->win = &scr->root;
+    cur->x = 0;
+    cur->y = 0;
+    cur->width = scr->width_in_pixels;
+    cur->height = scr->height_in_pixels;
+    cur->next = NULL;
     while (ret == 0) {
         ret = eventHandler();
     }

@@ -8,8 +8,7 @@
 
 typedef struct Window{
     xcb_window_t *win;
-    int ws_id, scr_id;
-    uint32_t vals[4];
+    uint32_t ws_id, scr_id, x, y, width, height;
     struct Window *next;
 }Window;
 
