@@ -196,14 +196,18 @@ static void handleMapRequest(xcb_generic_event_t * ev) {
 
 static void handleCreateRequest(xcb_generic_event_t *ev) {
     xcb_create_notify_event_t *e = (xcb_create_notify_event_t  *) ev;
-    Window *new = (Window *) calloc(1, sizeof(Window));
+    Window *next = cur, *new = (Window *) malloc(sizeof(Window));
     new->win = &e->window;
-    new->next = cur;
+    new->next = next;
+    xcb_get_geometry_cookie_t cookie;
+    xcb_get_geometry_reply_t *reply;
+    cookie = xcb_get_geometry(d, e->window);
+    reply = xcb_get_geometry_reply(d, cookie, NULL);
     uint32_t vals[4];
-    vals[0] = e->x;
-    vals[1] = e->y;
-    vals[2] = e->width;
-    vals[3] = e->height;
+    vals[0] = reply->x?reply->x:0;
+    vals[1] = reply->y?reply->y:0;
+    vals[2] = reply->width?reply->width:1920;
+    vals[3] = reply->height?reply->height:1080;
     screen_data *scr_tmp = get_current_screen();
     new->scr_id = scr_tmp->id;
     new->ws_id = scr_tmp->ws_id;
@@ -211,12 +215,12 @@ static void handleCreateRequest(xcb_generic_event_t *ev) {
     new->y = vals[1];
     new->width = vals[2];
     new->height = vals[3];
-		cur = new;
-		setFocus(e->window);
-		xcb_configure_window(d, e->window, XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |
+    xcb_configure_window(d, e->window, XCB_CONFIG_WINDOW_X |
+    	XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |
     	XCB_CONFIG_WINDOW_HEIGHT, vals);
 		ewmh_set_supporting(e->window);
 		xcb_map_window(d, e->window);
+	cur = new;
 }
 
 static void handleDestroyRequest(xcb_generic_event_t *ev) {

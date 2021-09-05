@@ -54,6 +54,6 @@ static handler_func_t handler_funs[] = {
 static Key keys[] = {
     { MOD1,      0x0071, 0, killclient},/* 0x0071 = XK_q */
     { MOD1,      0x006d, 1, ws_switch},    // 0x006d = XK_m
-    { MOD1,      0x006e, 0, ws_switch},    // 00x0066e = XM_n
+    { MOD1,      0x006e, 0, ws_switch},    //00x0066e = XM_n
 };
 #endif
